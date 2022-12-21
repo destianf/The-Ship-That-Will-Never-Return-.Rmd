@@ -1,0 +1,227 @@
+---
+title: "The Ship That Will Never Return~"
+author: "Destian.Fahdi.A"
+date: "2022-10-22"
+output:  
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: 
+        collapsed: false
+    number_sections: true
+    theme: flatly
+    highlight: zenburn
+  fig_caption: yes
+  pdf_document:
+    latex_engine: xelatex
+    fig_caption: yes
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Sejarah Kapal RMS Titanic
+
+RMS Titanic adalah sebuah kapal penumpang super Britania Raya yang tenggelam di Samudra Atlantik Utara pada tanggal 15 April 1912 setelah menabrak sebuah gunung es pada pelayaran perdananya dari Southampton, Inggris ke New York City. Tenggelamnya Titanic mengakibatkan kematian sebanyak 1.514 orang dalam salah satu bencana maritim masa damai paling mematikan sepanjang sejarah. Titanic merupakan kapal terbesar di dunia pada pelayaran perdananya. Satu dari tiga kapal samudra kelas Olympic dioperasikan oleh White Star Line. Kapal ini dibangun pada 1909 sampai 1911 oleh galangan kapal Harland and Wolff di Belfast. Kapal ini sanggup mengangkut 2.224 penumpang.
+
+# Referensi Data Set
+
+<https://www.kaggle.com/c/titanic/>
+
+# Persiapan Data Set & Inspeksi Data
+
+## Input data pertama & cek struktur data
+```{r}
+Titanic.train <- read.csv("train.csv", stringsAsFactors = FALSE, header = TRUE)
+str(Titanic.train)
+```
+## Input data kedua & cek struktur data
+```{r}
+Titanic.test <- read.csv("test.csv", stringsAsFactors = FALSE, header = TRUE)
+str(Titanic.test)
+```
+Ternyata dataset 1 & 2 memiliki perbedaan baris & kolom. 
+
+## Mari kita coba cek median dari kedua data, apakah sama?
+
+```{r}
+median(Titanic.train$Age, na.rm = T)
+median(Titanic.test$Age, na.rm = T)
+```
+**Median dari kedua data set tersebut ternyata juga berbeda!!!**
+
+Sekarang, mari kita buat kolom baru dengan nama "isTrainset" untuk membedakan kedua data set tersebut.
+```{r}
+Titanic.train$isTrainSet <- T
+Titanic.test$isTrainSet <- F
+```
+
+**Menambahkan kolom survived pada data set Titanic.test sebagai kolom kosong yang akan diisi dengan model prediksi yang akan kita buat**
+```{r}
+Titanic.test$Survived <- NA
+```
+
+Mari kita cek kolom dari kedua data set tersebut apakah sudah sama?
+```{r}
+names(Titanic.train)
+names(Titanic.test)
+```
+**Yeah!! data sudah sama dan sudah siap untuk dikombinasikan menjadi 1 data set**
+
+
+# Mengkombinasikan 2 Data Menjadi Satu
+
+```{r}
+Titanic.all <- rbind(Titanic.train, Titanic.test)
+```
+
+## Mengubah tipe data menjadi factor
+```{r}
+Titanic.all[,c("Survived", "Sex", "Pclass", "Embarked", "SibSp", "Parch")] <- lapply(Titanic.all[, c("Survived", "Sex", "Pclass", "Embarked", "SibSp", "Parch")], as.factor)
+
+```
+**Struktur dari data "Titanic.all"**
+```{r}
+str(Titanic.all)
+```
+
+Mari melihat sekilas tentang isi data yang akan kita olah !!
+```{r}
+summary(Titanic.all)
+```
+**Penjelasan dataset:**
+
+- PassangerId = Nomor Identitas Penumpang
+- Survived    = Survival	0 = Tidak Selamat, 1 = Selamat
+- Pclass	    = Tipe Kelas Tiket	1 = 1st, 2 = 2nd, 3 = 3rd
+- Name        = Nama Penumpang
+- Sex	        = Jenis Kelamin	
+- Age	        = Usia Dalam Tahun
+- SibSp	      = Jumlah Saudara Yang Naik Ke Titanic
+- Parch	      = Jumlah Orang Tua / Anak  Yang Naik Ke Titanic	
+- Ticket  	  = Nomor Tiket	
+- Fare	      = Tarif Penumpang
+- Cabin	      = Nomor Kabin	
+- Ebarked     = Asal Pelabuhan C = Cherbourg, Q = Queenstown, S = Southampton
+
+
+
+## Menangani missing value pada dataset
+
+**Mengisi data kosong yang ada pada "Embarked"**
+```{r}
+#Clean Missing Value of Embarked
+Titanic.all[Titanic.all$Embarked == '' , "Embarked"] <- 'S'
+```
+
+**Mengisi data kosong pada kolom Age dengan median umur penumpang**
+```{r}
+#Clean Missing Value of Age
+
+age.median <- median(Titanic.all$Age, na.rm = T)
+Titanic.all[is.na(Titanic.all$Age), "Age"] <- age.median
+
+```
+Nilai median dari umur keseluruhan penumpang adalah 28 tahun.
+
+**Mengisi data kosong pada kolom Fare dengan nilai median**
+```{r}
+#Clean Missing Value of Fare
+
+fare.median <- median(Titanic.all$Fare, na.rm = T)
+fare.median
+Titanic.all[is.na(Titanic.all$Fare), "Fare"] <- fare.median
+
+
+```
+**Nilai Median dari kolom fare adalah 14.4542**
+
+
+## Memisahkan data yang telah dibersihkan menjadi 2 dataset
+```{r}
+#Split Dataset backout into train and test
+Titanic.train <- Titanic.all[Titanic.all$isTrainSet == T,]
+Titanic.test <- Titanic.all[Titanic.all$isTrainSet == F,]
+```
+
+```{r}
+str(Titanic.train)
+```
+
+# Memprediksi Penumpang Yang selamat
+
+## Membuat formula untuk model prediksi yang akan kita pakai
+
+```{r}
+Survived.equation <- "Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked"
+Survived.formula <- as.formula(Survived.equation)
+```
+
+**Memanggil Library**
+```{r}
+library(randomForest)
+```
+
+## Membuat Model Prediksi
+```{r}
+set.seed(1)
+titanic.model <- randomForest(formula = Survived.formula, data = Titanic.train, ntree = 1000, mtry = 3, nodesize = 0.01 * nrow(Titanic.test))
+plot(titanic.model)
+```
+Untuk hasil output dari model yang telah dibuat, didapatkan bahwa Tipe random forestnya adalah klasifikasi dan jumlah pohon yang di tumbuhkan ada 500, kemudian jumlah variabel yang di coba setiap percabangan ada 3. Lalu ada OOB(out of box) estimate of error rate adalah estimasi error yang di dapatkan jika data di luar dari data pengujian.
+
+## Membuat Prediksi menggunakan model yang telah dibuat
+```{r}
+Survived <- predict(titanic.model, newdata = Titanic.test)
+
+```
+
+```{r}
+Titanic.test$Survived <- Survived
+```
+
+# Berapa banyak penumpang yang selamat berdasarkan model prediksi yang telah dibuat?
+```{r}
+table(Titanic.test$Survived)
+```
+
+Berdasarkan prediksi menggunakan Random Forest, jumlah penumpang yang selamat sebanyak 140 orang dari total semua penumpang yang berjumlah 418 orang.
+
+
+## Persentase penumpang yang selamat
+
+```{r}
+round(prop.table(table(Titanic.test$Survived))*100)
+```
+Sebanyak 33% penumpang yang selamat dari kecelakaan tersebut berdasarkan model prediksi random forest yang telah dibuat.
+
+## Penumpang yang selamat berdasarkan jenis kelamin
+
+```{r}
+table(Titanic.test$Survived, Titanic.test$Sex)
+```
+```{r}
+library(ggplot2)
+
+ggplot(data=Titanic.test, aes(Sex, fill = factor(Survived))) + geom_bar(stat = "count", position = "dodge") + xlab("Jenis Kelamin") + scale_fill_discrete(name = "Penumpang Selamat") + ggtitle("Penumpang Selamat Berdasarkan Jenis Kelamin")
+```
+Berdasarkan jenis kelamin, jumlah penumpang Perempuan yang selamat sebanyak 117 orang, sedangkan untuk jumlah penumpang laki - laki yang selamat sebanyak 23 orang.
+
+## Penumpang yang selamat berdasarkan Kelas Penumpang
+```{r}
+table(Titanic.test$Survived, Titanic.test$Pclass)
+```
+
+
+```{r}
+ggplot(data=Titanic.test, aes(Pclass, fill = factor(Survived))) + geom_bar(stat = "count", position = "dodge") + xlab("Pclass") + scale_fill_discrete(name = "Penumpang Selamat") + ggtitle("Penumpang Yang Selamat Berdasarkan Passenger Class")
+```
+Berdasarkan kelas penumpang, penumpang kelas 1 yang selamat sebanyak 63 orang, kemudian selanjutnya penumpang kelas 3 sebanyak 45 orang, dan terakhir penumpang kelas 2 sebanyak 32 orang.
+
+
+# Kesimpulan
+
+  Berdasarkan hasil analisis model prediksi sederhana menggunakan Random Forest, dapat diketahui bahwa penumpang yang selamat dari kecelakaan kapal titanic tidak sampai 50%. Dimana, penumpang yang selamat berdasarkan jenis kelamin mayoritas adalah perempuan. jika dilihat lebih dalam lagi, penumpang kelas 1 mendapatkan lebih banyak privilege untuk mendapatkan pertolongan terlebih dahulu, terlihat dari banyaknya penumpang kelas ini yang selamat dari pada yang meninggal dibandingkan dengan 2 kelas lainnya yang mana penumpang yang tidak selamat lebih banyak dari pada yang selamat.
+
